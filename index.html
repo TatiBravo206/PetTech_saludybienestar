@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PetTech | Salud y Bienestar para Mascotas</title>
+    <link rel="icon" href="image/logo.png" type="image/png">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+
+    <!-- BARRA DE NAVEGACIÓN -->
+    <header class="main-header">
+        <div class="container nav-container">
+            <a href="index.html" class="brand">
+                <span><strong>PetTech</strong></span>
+            </a>
+
+            <nav class="main-nav" aria-label="Navegación principal">
+                <a href="#inicio">Inicio</a>
+                <a href="#marketplace">Marketplace</a>
+                <button type="button" id="openLoginBtn" class="btn btn-primary">
+                    Iniciar Sesión
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <!-- HERO -->
+        <section id="inicio" class="hero-banner">
+            <div class="hero-overlay"></div>
+            <div class="container hero-content">
+                <div class="hero-text">
+                    <span class="section-tag">Bienvenido a PetTech</span>
+                    <h1>
+                        La salud de tu mascota,
+                        <span>siempre organizada.</span>
+                    </h1>
+                    <p>
+                        Cuidamos la salud de tu mascota en consulta y
+                        simplificamos su historial, vacunas y citas desde nuestra plataforma online.
+                    </p>
+                    <div class="hero-actions">
+                        <a href="#marketplace" class="btn btn-primary">
+                            Explorar Marketplace
+                        </a>
+                        <button type="button" id="heroLoginBtn" class="btn btn-outline-light">
+                            Portal de Tutor
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- INFORMACIÓN GENERAL -->
+        <section class="info-section">
+            <div class="container">
+                <div class="section-heading">
+                    <span class="section-tag">Funcionalidades</span>
+                    <h2>Todo lo que tu mascota necesita, desde la consulta hasta tu casa.</h2>
+                </div>
+
+                <div class="feature-grid">
+                    <article class="feature-card">
+                        <h3>🐶 Gestión de mascotas</h3>
+                        <p>Registra la información de tus mascotas y consulta sus datos de manera organizada.</p>
+                    </article>
+                    <article class="feature-card">
+                        <h3>📅 Citas veterinarias</h3>
+                        <p>Consulta disponibilidad y agenda citas directamente con profesionales veterinarios.</p>
+                    </article>
+                    <article class="feature-card">
+                        <h3>💉 Salud y vacunas</h3>
+                        <p>Mantén organizada la información relacionada con el cuidado preventivo de tus mascotas.</p>
+                    </article>
+                    <article class="feature-card">
+                        <h3>🛒 Marketplace</h3>
+                        <p>Encuentra productos relacionados con el cuidado y bienestar de tus mascotas.</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <!-- MARKETPLACE -->
+        <section id="marketplace" class="marketplace-section">
+            <div class="container">
+                <div class="section-heading">
+                    <span class="section-tag">Marketplace</span>
+                    <h2>Productos para tu mascota</h2>
+                    <p>Explora nuestro catálogo y agrega productos al carrito.</p>
+                </div>
+
+                <div id="marketplaceMessage" class="message-box hidden"></div>
+                <div id="productGrid" class="product-grid"></div>
+            </div>
+        </section>
+    </main>
+
+    <!-- CARRITO -->
+    <aside id="cartPanel" class="cart-panel" aria-label="Carrito de compras">
+        <div class="cart-header">
+            <div>
+                <span class="section-tag">Marketplace</span>
+                <h2>Mi carrito</h2>
+            </div>
+            <button type="button" id="closeCartBtn" class="icon-btn" aria-label="Cerrar carrito">×</button>
+        </div>
+
+        <div id="cartItems" class="cart-items"></div>
+
+        <div class="cart-footer">
+            <div class="cart-total-row">
+                <span>Total</span>
+                <strong id="cartTotal">$0</strong>
+            </div>
+            <button type="button" id="checkoutBtn" class="btn btn-primary btn-full">
+                Finalizar compra
+            </button>
+        </div>
+    </aside>
+
+    <button type="button" id="openCartBtn" class="floating-cart" aria-label="Abrir carrito">
+        🛒 <span id="cartCount">0</span>
+    </button>
+
+    <!-- MODAL DE LOGIN -->
+    <div id="loginModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+        <div class="modal-card">
+            <button type="button" id="closeLoginBtn" class="modal-close" aria-label="Cerrar">×</button>
+            <h2 id="loginTitle">Iniciar sesión</h2>
+            <p class="muted">Selecciona el perfil que vas a utilizar.</p>
+
+            <!-- Selector de rol por botones -->
+            <div class="role-switch">
+                <button type="button" class="role-btn active" data-role="tutor">👤 Tutor</button>
+                <button type="button" class="role-btn" data-role="veterinario">🩺 Veterinario</button>
+            </div>
+
+            <!-- Formulario completo de inicio de sesión -->
+            <form id="loginForm">
+                <input type="hidden" id="role" value="tutor">
+
+                <div class="form-group">
+                    <label for="email">Correo electrónico</label>
+                    <input id="email" type="email" required autocomplete="email" placeholder="correo@ejemplo.com">
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Contraseña</label>
+                    <input id="password" type="password" required minlength="6" autocomplete="current-password" placeholder="••••••••">
+                </div>
+
+                <!-- Espacio añadido antes del span -->
+                <button class="btn btn-primary btn-full" type="submit">
+                    Ingresar como <span id="roleLabel">Tutor</span>
+                </button>
+
+                <div id="loginMessage" class="form-message"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- PIE DE PÁGINA -->
+    <footer class="main-footer">
+        <div class="container footer-content">
+            <div class="brand footer-brand">
+                <span>
+                    <strong>PetTech</strong>
+                    <small>Salud y bienestar para mascotas</small>
+                </span>
+            </div>
+            <p>© 2026 PetTech.</p>
+        </div>
+    </footer>
+
+    <script src="js/marketplace.js"></script>
+    <script src="js/auth.js"></script>
+</body>
+</html>
