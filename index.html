@@ -7,6 +7,15 @@
     <title>PetTech | Salud y Bienestar para Mascotas</title>
     <link rel="icon" href="image/logo.png" type="image/png">
     <link rel="stylesheet" href="css/styles.css">
+    <style>
+        .brand-with-logo { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; }
+        .brand-logo { height: 56px; width: auto; object-fit: contain; display: block;
+            filter: drop-shadow(0 2px 6px rgba(107, 33, 168, .25)); transition: transform .25s ease; }
+        .brand-with-logo:hover .brand-logo { transform: scale(1.06) rotate(-2deg); }
+        .brand-with-logo strong { color: #6b21a8; }
+        .brand-logo-footer { height: 48px; }
+        @media (max-width: 600px) { .brand-logo { height: 44px; } .brand-logo-footer { height: 40px; } }
+    </style>
 </head>
 
 <body>
@@ -14,7 +23,8 @@
     <!-- BARRA DE NAVEGACIÓN -->
     <header class="main-header">
         <div class="container nav-container">
-            <a href="index.html" class="brand">
+            <a href="index.html" class="brand brand-with-logo">
+                <img src="image/logo.png" alt="Logo PetTech" class="brand-logo">
                 <span><strong>PetTech</strong></span>
             </a>
 
@@ -166,7 +176,8 @@
     <!-- PIE DE PÁGINA -->
     <footer class="main-footer">
         <div class="container footer-content">
-            <div class="brand footer-brand">
+            <div class="brand footer-brand brand-with-logo">
+                <img src="image/logo.png" alt="Logo PetTech" class="brand-logo brand-logo-footer">
                 <span>
                     <strong>PetTech</strong>
                     <small>Salud y bienestar para mascotas</small>

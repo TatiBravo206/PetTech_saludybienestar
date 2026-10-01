@@ -15,7 +15,8 @@
     <!-- barra de navegación -->
     <header class="main-header">
         <div class="container nav-container">
-            <a href="index.html" class="brand">
+            <a href="index.html" class="brand brand-with-logo">
+                <img src="image/logo.png" alt="Logo PetTech" class="brand-logo">
                 <span>
                     <strong>PetTech</strong>
                     <small>Panel Tutor</small>
@@ -209,8 +210,167 @@
         </div>
     </footer>
     
+    <!-- mini calendario flotante: citas y vacunas -->
+    <aside id="miniCal" class="mini-cal" aria-label="Calendario de citas y vacunas">
+        <button type="button" id="miniCalToggle" class="mini-cal-toggle" aria-expanded="true">
+            <span>📅 Calendario</span>
+            <span id="miniCalArrow">▾</span>
+        </button>
+        <div id="miniCalBody" class="mini-cal-body">
+            <div class="mini-cal-nav">
+                <button type="button" id="miniCalPrev" aria-label="Mes anterior">‹</button>
+                <strong id="miniCalTitle"></strong>
+                <button type="button" id="miniCalNext" aria-label="Mes siguiente">›</button>
+            </div>
+            <div class="mini-cal-grid mini-cal-week">
+                <span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span><span>D</span>
+            </div>
+            <div id="miniCalDays" class="mini-cal-grid"></div>
+            <div class="mini-cal-legend">
+                <span><i class="dot dot-cita"></i> Citas</span>
+                <span><i class="dot dot-vacuna"></i> Vacunas</span>
+            </div>
+            <div id="miniCalDetail" class="mini-cal-detail">Selecciona un día para ver el detalle.</div>
+        </div>
+    </aside>
+
+    <style>
+        .brand-with-logo { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; }
+        .brand-logo { height: 56px; width: auto; object-fit: contain; display: block;
+            filter: drop-shadow(0 2px 6px rgba(107, 33, 168, .25)); transition: transform .25s ease; }
+        .brand-with-logo:hover .brand-logo { transform: scale(1.06) rotate(-2deg); }
+        .brand-with-logo strong { color: #6b21a8; }
+        @media (max-width: 600px) { .brand-logo { height: 44px; } }
+
+        .mini-cal { position: fixed; right: 16px; bottom: 16px; width: 280px; z-index: 900;
+            background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+            box-shadow: 0 8px 24px rgba(0,0,0,.15); font-size: 13px; overflow: hidden; }
+        .mini-cal-toggle { width: 100%; display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 14px; border: 0; background: #7e22ce; color: #fff; font-weight: 600; cursor: pointer; }
+        .mini-cal-body { padding: 10px 12px 12px; }
+        .mini-cal.collapsed .mini-cal-body { display: none; }
+        .mini-cal-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .mini-cal-nav button { border: 0; background: #f1f5f9; border-radius: 6px; width: 26px; height: 26px; cursor: pointer; }
+        .mini-cal-nav strong { text-transform: capitalize; }
+        .mini-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+        .mini-cal-week span { font-size: 11px; color: #64748b; padding: 2px 0; }
+        .mini-cal-day { position: relative; border: 0; background: transparent; border-radius: 6px;
+            height: 32px; cursor: pointer; font-size: 12px; color: #1e293b; }
+        .mini-cal-day:hover { background: #f1f5f9; }
+        .mini-cal-day.empty { visibility: hidden; cursor: default; }
+        .mini-cal-day.today { outline: 2px solid #7e22ce; }
+        .mini-cal-day.selected { background: #f3e8ff; }
+        .mini-cal-day .dots { position: absolute; left: 0; right: 0; bottom: 3px; display: flex; justify-content: center; gap: 3px; }
+        .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; }
+        .dot-cita { background: #2563eb; }
+        .dot-vacuna { background: #16a34a; }
+        .mini-cal-legend { display: flex; gap: 12px; margin-top: 8px; color: #475569; font-size: 12px; }
+        .mini-cal-detail { margin-top: 8px; padding-top: 8px; border-top: 1px solid #e2e8f0;
+            max-height: 110px; overflow-y: auto; color: #334155; }
+        .mini-cal-detail .item { display: flex; gap: 6px; align-items: baseline; margin-bottom: 4px; }
+        @media (max-width: 600px) { .mini-cal { width: calc(100vw - 24px); right: 12px; bottom: 12px; } }
+    </style>
+
     <script src="js/pettech-core.js"></script>
     <script src="js/citas.js"></script>
+
+    <script>
+    (function () {
+        // ===== ORIGEN DE DATOS =====
+        // Devuelve [{ tipo: 'cita' | 'vacuna', fecha: 'YYYY-MM-DD', hora, mascota, detalle }]
+        // Si tus datos viven en otro lugar, solo ajusta esta función.
+        function pick(o, keys) {
+            for (var i = 0; i < keys.length; i++) if (o && o[keys[i]]) return o[keys[i]];
+            return '';
+        }
+        function scanStorage() {
+            var out = [];
+            for (var i = 0; i < localStorage.length; i++) {
+                var key = localStorage.key(i), lk = key.toLowerCase(), tipo = null;
+                if (/cita|appoint/.test(lk)) tipo = 'cita';
+                else if (/vacun|vaccin/.test(lk)) tipo = 'vacuna';
+                if (!tipo) continue;
+                var data;
+                try { data = JSON.parse(localStorage.getItem(key)); } catch (e) { continue; }
+                if (!Array.isArray(data)) continue;
+                data.forEach(function (o) {
+                    var f = String(pick(o, ['fecha', 'date', 'appointmentDate', 'proximaDosis', 'nextDose', 'fechaAplicacion'])).slice(0, 10);
+                    if (!/^\d{4}-\d{2}-\d{2}$/.test(f)) return;
+                    out.push({
+                        tipo: tipo, fecha: f,
+                        hora: pick(o, ['hora', 'time', 'appointmentTime']),
+                        mascota: pick(o, ['mascota', 'petName', 'pet', 'nombreMascota']),
+                        detalle: pick(o, ['vacuna', 'vaccine', 'nombre', 'name', 'veterinario', 'vet', 'motivo'])
+                    });
+                });
+            }
+            return out;
+        }
+        function getEvents() {
+            if (window.PetTechCalendarEvents) return window.PetTechCalendarEvents();
+            return scanStorage();
+        }
+
+        // ===== CALENDARIO =====
+        var MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+        var view = new Date(); view.setDate(1);
+        var selected = null, events = [];
+        var $ = function (id) { return document.getElementById(id); };
+        function iso(y, m, d) { return y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0'); }
+        function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+        function render() {
+            events = getEvents();
+            var y = view.getFullYear(), m = view.getMonth();
+            $('miniCalTitle').textContent = MESES[m] + ' ' + y;
+            var first = (new Date(y, m, 1).getDay() + 6) % 7; // semana inicia en lunes
+            var days = new Date(y, m + 1, 0).getDate();
+            var t = new Date(), todayIso = iso(t.getFullYear(), t.getMonth(), t.getDate());
+            var html = '';
+            for (var i = 0; i < first; i++) html += '<button class="mini-cal-day empty" tabindex="-1"></button>';
+            for (var d = 1; d <= days; d++) {
+                var key = iso(y, m, d);
+                var hasC = events.some(function (e) { return e.fecha === key && e.tipo === 'cita'; });
+                var hasV = events.some(function (e) { return e.fecha === key && e.tipo === 'vacuna'; });
+                var cls = 'mini-cal-day' + (key === todayIso ? ' today' : '') + (key === selected ? ' selected' : '');
+                html += '<button type="button" class="' + cls + '" data-date="' + key + '">' + d +
+                    '<span class="dots">' + (hasC ? '<i class="dot dot-cita"></i>' : '') + (hasV ? '<i class="dot dot-vacuna"></i>' : '') + '</span></button>';
+            }
+            $('miniCalDays').innerHTML = html;
+            renderDetail();
+        }
+        function renderDetail() {
+            var box = $('miniCalDetail');
+            if (!selected) { box.textContent = 'Selecciona un día para ver el detalle.'; return; }
+            var list = events.filter(function (e) { return e.fecha === selected; });
+            if (!list.length) { box.textContent = 'Sin citas ni vacunas este día.'; return; }
+            box.innerHTML = list.map(function (e) {
+                var label = e.tipo === 'cita' ? 'Cita' : 'Vacuna';
+                var txt = [e.hora, e.mascota, e.detalle].filter(Boolean).map(esc).join(' · ');
+                return '<div class="item"><i class="dot dot-' + e.tipo + '"></i><span><b>' + label + '</b> ' + txt + '</span></div>';
+            }).join('');
+        }
+
+        $('miniCalDays').addEventListener('click', function (ev) {
+            var b = ev.target.closest('[data-date]');
+            if (!b) return;
+            selected = b.getAttribute('data-date');
+            render();
+        });
+        $('miniCalPrev').addEventListener('click', function () { view.setMonth(view.getMonth() - 1); render(); });
+        $('miniCalNext').addEventListener('click', function () { view.setMonth(view.getMonth() + 1); render(); });
+        $('miniCalToggle').addEventListener('click', function () {
+            var c = $('miniCal').classList.toggle('collapsed');
+            $('miniCalToggle').setAttribute('aria-expanded', String(!c));
+            $('miniCalArrow').textContent = c ? '▴' : '▾';
+        });
+
+        render();
+        window.addEventListener('storage', render);
+        setInterval(function () { if (!document.hidden) render(); }, 4000); // refleja citas nuevas sin recargar
+        window.PetTechCalendar = { refresh: render };
+    })();
+    </script>
 </body>
 
 </html>
