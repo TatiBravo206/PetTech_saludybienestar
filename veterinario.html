@@ -1,27 +1,55 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0">
-    <meta
-        name="description"
-        content="Panel del veterinario PetTech">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Panel del veterinario PetTech">
     <title>PetTech | Panel del Veterinario</title>
     <link rel="icon" href="image/logo.png" type="image/png">
     <link rel="stylesheet" href="css/styles.css">
+    <style>
+        .brand-with-logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+        }
 
+        .brand-logo {
+            height: 56px;
+            width: auto;
+            object-fit: contain;
+            display: block;
+            filter: drop-shadow(0 2px 6px rgba(107, 33, 168, .25));
+            transition: transform .25s ease;
+        }
+
+        .brand-with-logo:hover .brand-logo {
+            transform: scale(1.06) rotate(-2deg);
+        }
+
+        .brand-with-logo strong {
+            color: #6b21a8;
+        }
+
+        @media (max-width: 600px) {
+            .brand-logo {
+                height: 44px;
+            }
+        }
+    </style>
 </head>
 
-<body>
-    
+<body class="vet-page">
+
     <!-- barra de navegación -->
     <header class="main-header">
 
         <div class="container nav-container">
 
-            <a href="index.html" class="brand">
+            <a href="index.html" class="brand brand-with-logo">
+                <img src="image/logo.png" alt="Logo PetTech" class="brand-logo">
                 <span>
                     <strong>
                         PetTech
@@ -35,10 +63,7 @@
 
             <nav class="main-nav">
 
-                <button
-                    type="button"
-                    id="logoutBtn"
-                    class="btn btn-outline">
+                <button type="button" id="logoutBtn" class="btn btn-outline">
                     Cerrar sesión
                 </button>
 
@@ -52,131 +77,24 @@
     <main class="dashboard-main">
 
         <div class="container">
-
-            
-
             <!-- encabezado del veterinario -->
-            <section class="dashboard-header">
-
-                <div>
-
-                    <h1>
-                        Gestión de agenda
-                    </h1>
-
+            <section class="dashboard-header header-with-image">
+                <div class="header-text">
+                    <h1>Gestión de agenda</h1>
                     <p>
                         Publica tus horarios disponibles y consulta
                         las citas confirmadas por los tutores.
                     </p>
-
                 </div>
-
+                <div class="header-image">
+                    <img src="image/veterinario.png" alt="Ilustración veterinaria con perro y gato"
+                        class="vet-illustration">
+                </div>
             </section>
 
-
-            
-
-            <section class="dashboard-section">
-
-                <div class="section-heading left">
-
-                    <h2>
-                        Datos del veterinario
-                    </h2>
-
-                </div>
-
-
-                <div class="dashboard-card">
-
-                    <form id="vetProfileForm">
-
-                        <div class="form-grid">
-
-                            <div class="form-group">
-
-                                <label for="vetName">
-                                    Nombre completo
-                                </label>
-
-                                <input
-                                    type="text"
-                                    id="vetName"
-                                    placeholder="Ej. Dra. Laura Martínez"
-                                    required>
-
-                            </div>
-
-
-                            <div class="form-group">
-
-                                <label for="vetSpecialty">
-                                    Especialidad
-                                </label>
-
-                                <select
-                                    id="vetSpecialty"
-                                    required>
-
-                                    <option value="">
-                                        Selecciona una especialidad
-                                    </option>
-
-                                    <option value="Medicina general">
-                                        Medicina general
-                                    </option>
-
-                                    <option value="Dermatología veterinaria">
-                                        Dermatología veterinaria
-                                    </option>
-
-                                    <option value="Cirugía veterinaria">
-                                        Cirugía veterinaria
-                                    </option>
-
-                                    <option value="Medicina interna">
-                                        Medicina interna
-                                    </option>
-
-                                    <option value="Odontología veterinaria">
-                                        Odontología veterinaria
-                                    </option>
-
-                                    <option value="Otra">
-                                        Otra
-                                    </option>
-
-                                </select>
-
-                            </div>
-
-                        </div>
-
-
-                        <div
-                            id="profileMessage"
-                            class="form-message">
-                        </div>
-
-
-                        <button
-                            type="submit"
-                            class="btn btn-primary">
-                            Guardar perfil
-                        </button>
-
-                    </form>
-
-                </div>
-
-            </section>
-
-
-            
             <section class="dashboard-section">
                 <div class="section-heading left">
                     <h2>Registrar vacuna</h2>
-                    <p>Registra la aplicación y la próxima dosis para que el tutor reciba el recordatorio.</p>
                 </div>
 
                 <div class="dashboard-card">
@@ -215,7 +133,8 @@
 
                             <div class="form-group form-group-full">
                                 <label for="vaccineNotes">Observaciones</label>
-                                <textarea id="vaccineNotes" rows="3" maxlength="300" placeholder="Ej. Aplicación sin novedades."></textarea>
+                                <textarea id="vaccineNotes" rows="3" maxlength="300"
+                                    placeholder="Ej. Aplicación sin novedades."></textarea>
                             </div>
                         </div>
 
@@ -223,7 +142,8 @@
 
                         <div class="form-actions vaccine-actions">
                             <button type="submit" id="saveVaccineBtn" class="btn btn-primary">Registrar vacuna</button>
-                            <button type="button" id="cancelVaccineEdit" class="btn btn-outline hidden">Cancelar edición</button>
+                            <button type="button" id="cancelVaccineEdit" class="btn btn-outline hidden">Cancelar
+                                edición</button>
                         </div>
                     </form>
                 </div>
@@ -237,7 +157,7 @@
                 <div id="veterinarianVaccines" class="vaccine-list"></div>
             </section>
 
-            
+
 
             <section class="dashboard-section">
 
@@ -267,10 +187,7 @@
                                     Fecha
                                 </label>
 
-                                <input
-                                    type="date"
-                                    id="availabilityDate"
-                                    required>
+                                <input type="date" id="availabilityDate" required>
 
                             </div>
 
@@ -281,11 +198,7 @@
                                     Hora de inicio
                                 </label>
 
-                                <input
-                                    type="time"
-                                    id="startTime"
-                                    required
-                                    value="08:00">
+                                <input type="time" id="startTime" required value="08:00">
 
                             </div>
 
@@ -296,11 +209,7 @@
                                     Hora de finalización
                                 </label>
 
-                                <input
-                                    type="time"
-                                    id="endTime"
-                                    required
-                                    value="12:00">
+                                <input type="time" id="endTime" required value="12:00">
 
                             </div>
 
@@ -311,8 +220,7 @@
                                     Duración de consulta
                                 </label>
 
-                                <select
-                                    id="slotDuration">
+                                <select id="slotDuration">
 
                                     <option value="30">
                                         30 minutos
@@ -329,15 +237,11 @@
                         </div>
 
 
-                        <div
-                            id="availabilityMessage"
-                            class="form-message">
+                        <div id="availabilityMessage" class="form-message">
                         </div>
 
 
-                        <button
-                            type="submit"
-                            class="btn btn-primary">
+                        <button type="submit" class="btn btn-primary">
                             Publicar disponibilidad
                         </button>
 
@@ -354,7 +258,7 @@
                 </div>
                 <div id="vetAppointments" class="appointment-list"></div>
             </section>
-</div>
+        </div>
 
     </main>
 
@@ -376,4 +280,5 @@
     <script src="js/veterinario.js"></script>
 
 </body>
+
 </html>
