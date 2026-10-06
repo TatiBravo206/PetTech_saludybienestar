@@ -1,11 +1,7 @@
-const AVAILABILITY_STORAGE_KEY = "PetTech_disponibilidad";
+const AVAILABILITY_STORAGE_KEY = PT.KEYS.AVAILABILITY;
 
 function readAvailability() {
-    try {
-        return JSON.parse(localStorage.getItem(AVAILABILITY_STORAGE_KEY)) || [];
-    } catch {
-        return [];
-    }
+    return PT.getAvailability();
 }
 
 document.addEventListener("DOMContentLoaded", initializeTutor);
@@ -29,6 +25,26 @@ function initializeTutor() {
     setupPetForm(session);
     setupAppointmentForm(session);
     setupLogout();
+
+    // Sincronización entre pestañas/ventanas del navegador.
+    window.addEventListener("storage", handleTutorStorageChange);
+}
+
+function handleTutorStorageChange(event) {
+    if (![PT.KEYS.PETS, PT.KEYS.VACCINES, PT.KEYS.APPOINTMENTS, PT.KEYS.VETS, PT.KEYS.AVAILABILITY].includes(event.key)) {
+        return;
+    }
+
+    const session = PT.session();
+    if (!session || session.role !== "tutor") return;
+
+    loadPets(session);
+    loadVeterinarians();
+    loadTutorAppointments(session);
+    loadHealthReminders(session);
+    loadTutorVaccines(session);
+    renderStats(session);
+    renderAvailableSlots();
 }
 
 function setupHeaderAndStats(session) {
@@ -324,16 +340,27 @@ function loadVeterinarians() {
     const select = document.getElementById("appointmentVet");
     if (!select) return;
 
+    const currentValue = select.value;
     select.innerHTML = `<option value="">Selecciona un veterinario</option>`;
 
-    db.vets.forEach(vet => {
-        const option = document.createElement("option");
-        option.value = vet.id;
-        option.textContent = `${vet.name} - ${vet.specialty}`;
-        select.appendChild(option);
-    });
+    db.vets
+        .slice()
+        .sort((a, b) => a.id === "v1" ? -1 : b.id === "v1" ? 1 : String(a.name).localeCompare(String(b.name)))
+        .forEach(vet => {
+            const option = document.createElement("option");
+            option.value = vet.id;
+            option.textContent = `${vet.name} - ${vet.specialty}`;
+            select.appendChild(option);
+        });
 
-    select.addEventListener("change", renderAvailableSlots);
+    if (db.vets.some(vet => vet.id === currentValue)) {
+        select.value = currentValue;
+    }
+
+    if (!select.dataset.bound) {
+        select.addEventListener("change", renderAvailableSlots);
+        select.dataset.bound = "true";
+    }
 }
 
 function clearSelectedTime() {
@@ -358,16 +385,18 @@ function renderAvailableSlots() {
     const published = readAvailability().find(item => item.vetId === vetId && item.date === date);
     const db = PT.db();
 
-    if (!published || !published.slots?.length) {
+    if (!published || !published.slots.length) {
         container.innerHTML = `<div class="empty-state">El veterinario no tiene horarios publicados para esta fecha.</div>`;
         return;
     }
 
+    const occupiedSlots = new Set(published.occupiedSlots || []);
     container.innerHTML = "";
 
     published.slots.forEach(time => {
-        const isOccupied = db.appointments.some(
-            appointment => appointment.vetId === vetId &&
+        const isOccupied = occupiedSlots.has(time) || db.appointments.some(
+            appointment =>
+                appointment.vetId === vetId &&
                 appointment.date === date &&
                 appointment.time === time &&
                 appointment.status !== "Cancelada"
@@ -376,7 +405,7 @@ function renderAvailableSlots() {
         const button = document.createElement("button");
         button.type = "button";
         button.className = "time-slot";
-        button.textContent = time;
+        button.textContent = isOccupied ? `${time} · Ocupado` : time;
 
         if (isOccupied) {
             button.disabled = true;
@@ -433,19 +462,29 @@ function setupAppointmentForm(session) {
             return;
         }
 
-        PT.addAppointment({
-            id: PT.uid("a"),
-            petId,
-            tutorId: session.id,
-            tutorName: session.name || session.email?.split("@")[0] || "Tutor",
-            tutorEmail: session.email || "",
-            vetId,
-            date,
-            time,
-            reason: vet ? `Consulta con ${vet.specialty}` : "Consulta general",
-            status: "Confirmada",
-            notes: "Agendado directamente desde el panel del tutor."
-        });
+        try {
+            PT.addAppointment({
+                id: PT.uid("a"),
+                petId,
+                tutorId: session.id,
+                tutorName: session.name || session.email?.split("@")[0] || "Tutor",
+                tutorEmail: session.email || "",
+                vetId,
+                date,
+                time,
+                reason: vet ? `Consulta con ${vet.specialty}` : "Consulta general",
+                status: "Confirmada",
+                notes: "Agendado directamente desde el panel del tutor."
+            });
+        } catch (error) {
+            if (error?.message === "SLOT_OCCUPIED") {
+                showMessage("appointmentMessage", "Este horario acaba de ser ocupado. Elige otro.", "error");
+                renderAvailableSlots();
+                return;
+            }
+            showMessage("appointmentMessage", "No fue posible guardar la cita.", "error");
+            return;
+        }
 
         showMessage("appointmentMessage", "¡Cita confirmada correctamente!", "success");
         clearSelectedTime();

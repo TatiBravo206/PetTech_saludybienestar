@@ -1,4 +1,4 @@
-const AVAILABILITY_STORAGE_KEY = "PetTech_disponibilidad";
+const AVAILABILITY_STORAGE_KEY = PT.KEYS.AVAILABILITY;
 
 const $ = id => document.getElementById(id);
 
@@ -12,7 +12,8 @@ function getTodayString() {
 }
 
 function getStorage(key, fallback = []) {
-    return PT.read(key, fallback) || fallback;
+    const value = PT.read(key, fallback);
+    return Array.isArray(value) ? value : fallback;
 }
 
 function saveStorage(key, value) {
@@ -21,9 +22,15 @@ function saveStorage(key, value) {
 
 function getCurrentVeterinarian() {
     const session = getSession();
-    if (!session) return null;
+    if (!session || session.role !== "veterinario") return null;
+
+    const email = String(session.email || "").trim().toLowerCase();
     const vets = getStorage(PT.KEYS.VETS, []);
-    return vets.find(vet => vet.id === session.vetId || (session.email && vet.email === session.email)) || null;
+
+    return vets.find(vet =>
+        vet.id === session.vetId ||
+        (email && String(vet.email || "").trim().toLowerCase() === email)
+    ) || null;
 }
 
 function initializeVeterinarian() {
@@ -33,6 +40,7 @@ function initializeVeterinarian() {
         return;
     }
 
+    setupLogout();
     setupDate();
     loadVeterinarianProfile();
     setupProfileForm();
@@ -41,7 +49,22 @@ function initializeVeterinarian() {
     loadVeterinarianVaccines();
     setupAvailabilityForm();
     loadAppointments();
-    setupLogout();
+
+    // Refresca el panel si el tutor agenda desde otra pestaña.
+    window.addEventListener("storage", handleVeterinarianStorageChange);
+}
+
+function handleVeterinarianStorageChange(event) {
+    if (![PT.KEYS.PETS, PT.KEYS.VACCINES, PT.KEYS.APPOINTMENTS, PT.KEYS.VETS, PT.KEYS.AVAILABILITY].includes(event.key)) {
+        return;
+    }
+
+    const session = getSession();
+    if (!session || session.role !== "veterinario") return;
+
+    loadVaccinePets();
+    loadVeterinarianVaccines();
+    loadAppointments();
 }
 
 document.addEventListener("DOMContentLoaded", initializeVeterinarian);
@@ -66,8 +89,12 @@ function setupDate() {
 function loadVeterinarianProfile() {
     const vet = getCurrentVeterinarian();
     if (!vet) return;
-    $("vetName").value = vet.name || "";
-    $("vetSpecialty").value = vet.specialty || "";
+    const nameInput = $("vetName");
+    const specialtyInput = $("vetSpecialty");
+    if (!nameInput || !specialtyInput) return;
+
+    nameInput.value = vet.name || "";
+    specialtyInput.value = vet.specialty || "";
 }
 
 function setupProfileForm() {
@@ -98,7 +125,13 @@ function setupProfileForm() {
         }
 
         saveStorage(PT.KEYS.VETS, vets);
-        localStorage.setItem("PetTech_sesion", JSON.stringify({ ...session, vetId: vet.id }));
+        PT.write(PT.KEYS.SESSION, {
+            ...session,
+            vetId: vet.id,
+            name: vet.name,
+            fullName: vet.name,
+            specialty: vet.specialty
+        });
         showMessage("profileMessage", "Perfil veterinario guardado correctamente.", "success");
         loadVaccinePets();
         loadVeterinarianVaccines();
@@ -111,18 +144,26 @@ function loadVaccinePets() {
 
     const current = select.value;
     const db = PT.db();
-    const pets = db.pets.filter(pet => pet.tutorId || !pet.tutorId);
+    const pets = db.pets.filter(pet => Boolean(pet.tutorId));
 
     select.innerHTML = `<option value="">Selecciona una mascota</option>`;
+
     pets.forEach(pet => {
-        const tutor = db.pets.find(item => item.id === pet.id)?.tutorId;
+        const tutor = getTutorById(pet.tutorId, db);
         const option = document.createElement("option");
         option.value = pet.id;
-        option.textContent = `${pet.name} (${pet.species})${tutor ? "" : " · sin tutor asociado"}`;
+        option.textContent = `${pet.name} (${pet.species}) · ${tutor?.username || tutor?.email || "Tutor"}`;
         select.appendChild(option);
     });
 
-    if (pets.some(pet => pet.id === current)) select.value = current;
+    if (pets.some(pet => pet.id === current)) {
+        select.value = current;
+    }
+}
+
+function getTutorById(tutorId, db = PT.db()) {
+    const users = PT.read(PT.KEYS.USERS, []);
+    return users.find(user => user.role === "tutor" && user.id === tutorId) || null;
 }
 
 function setupVaccineForm() {
@@ -165,10 +206,19 @@ function setupVaccineForm() {
         }
 
         const vaccines = db.vaccines.slice();
+        const index = vaccines.findIndex(vaccine => vaccine.id === id);
+        const previous = index >= 0 ? vaccines[index] : null;
+        const tutorId = pet.tutorId || previous?.tutorId || null;
+
+        if (!tutorId) {
+            showMessage("vaccineMessage", "La mascota debe estar asociada a un tutor antes de registrar la vacuna.", "error");
+            return;
+        }
+
         const record = {
             id: id || PT.uid("vax"),
             petId,
-            tutorId: pet.tutorId || null,
+            tutorId,
             vetId: vet.id,
             vetName: vet.name,
             name,
@@ -178,7 +228,6 @@ function setupVaccineForm() {
             updatedAt: new Date().toISOString()
         };
 
-        const index = vaccines.findIndex(vaccine => vaccine.id === id);
         if (index >= 0) vaccines[index] = { ...vaccines[index], ...record };
         else vaccines.push(record);
 
@@ -326,15 +375,31 @@ function setupAvailabilityForm() {
             return;
         }
 
-        const availability = getStorage(AVAILABILITY_STORAGE_KEY, []);
+        const availability = PT.getAvailability();
         const existing = availability.find(item => item.vetId === vet.id && item.date === date);
+
         if (existing) {
-            existing.slots = [...new Set([...existing.slots, ...slots])].sort();
+            existing.slots = [...new Set([...(existing.slots || []), ...slots])].sort();
+            existing.occupiedSlots = [...new Set(existing.occupiedSlots || [])]
+                .filter(time => existing.slots.includes(time));
+            existing.vetName = vet.name;
+            existing.specialty = vet.specialty;
             existing.updatedAt = new Date().toISOString();
         } else {
-            availability.push({ id: PT.uid("disp"), vetId: vet.id, vetName: vet.name, specialty: vet.specialty, date, slots, createdAt: new Date().toISOString() });
+            availability.push({
+                id: PT.uid("disp"),
+                vetId: vet.id,
+                vetName: vet.name,
+                specialty: vet.specialty,
+                date,
+                slots: [...new Set(slots)].sort(),
+                occupiedSlots: [],
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            });
         }
-        saveStorage(AVAILABILITY_STORAGE_KEY, availability);
+
+        PT.saveAvailability(availability);
         form.reset();
         setupDate();
         showMessage("availabilityMessage", "Disponibilidad publicada correctamente.", "success");
