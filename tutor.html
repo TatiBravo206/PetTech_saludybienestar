@@ -31,6 +31,17 @@
                 </button>
             </nav>
         </div>
+
+        <!-- secciones del panel -->
+        <nav class="section-nav" aria-label="Secciones del panel">
+            <div class="container section-nav-inner">
+                <a href="#seccion-mascotas">Mascotas</a>
+                <a href="#seccion-agendar">Agendar cita</a>
+                <a href="#seccion-vacunas-proximas">Próximas vacunas</a>
+                <a href="#seccion-historial">Historial de vacunas</a>
+                <a href="#seccion-citas">Próximas citas</a>
+            </div>
+        </nav>
     </header>
 
     <main class="dashboard-main">
@@ -60,7 +71,7 @@
             </section>
 
             
-            <section class="dashboard-section">
+            <section id="seccion-mascotas" class="dashboard-section" data-collapsible data-open>
                 <div class="section-heading left">
                     <h2>Mascotas registradas</h2>
                 </div>
@@ -69,7 +80,7 @@
             </section>
 
             
-            <section class="dashboard-section">
+            <section id="seccion-agendar" class="dashboard-section" data-collapsible>
                 <div class="section-heading left">
                     <h2>Agendamiento de citas</h2>
                     <p>Selecciona tu mascota, veterinario, fecha y horario disponible.</p>
@@ -128,15 +139,16 @@
             </section>
 
             
-            <section class="dashboard-section">
+            <section id="seccion-vacunas-proximas" class="dashboard-section" data-collapsible>
                 <div class="section-heading left">
                     <h2>Próximas vacunas</h2>
                     <p>Consulta las vacunas programadas por el veterinario para tus mascotas.</p>
+                </div>
                 <div id="healthReminders" class="reminder-grid"></div>
             </section>
 
             
-            <section class="dashboard-section">
+            <section id="seccion-historial" class="dashboard-section" data-collapsible>
                 <div class="section-heading left">
                     <h2>Historial de vacunas</h2>
                     <p>Revisa el registro de vacunas aplicadas a tus mascotas.</p>
@@ -145,11 +157,13 @@
             </section>
 
             
-            <section class="dashboard-section">
+            <section id="seccion-citas" class="dashboard-section" data-collapsible>
                 <div class="section-heading left">
                     <h2>Próximas citas</h2>
+                    <p>Aquí aparecen tus citas pendientes. Puedes cancelarlas si no podrás asistir.</p>
                 </div>
 
+                <div id="tutorAppointmentsMessage" class="form-message"></div>
                 <div id="tutorAppointments" class="appointment-list"></div>
             </section>
 

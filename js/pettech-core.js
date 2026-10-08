@@ -193,6 +193,9 @@ const PT = {
         if (!Array.isArray(availability)) {
             this.write(this.KEYS.AVAILABILITY, []);
         }
+
+        // Las citas de días anteriores se eliminan solas.
+        this.purgePastAppointments();
     },
 
     db() {
@@ -273,6 +276,147 @@ const PT = {
         }
 
         return appData;
+    },
+
+    // ===== Fechas y citas =====
+
+    today() {
+        const now = new Date();
+        return [
+            now.getFullYear(),
+            String(now.getMonth() + 1).padStart(2, "0"),
+            String(now.getDate()).padStart(2, "0")
+        ].join("-");
+    },
+
+    appointmentStart(appointment) {
+        return new Date(`${appointment.date}T${appointment.time || "23:59"}:00`);
+    },
+
+    isUpcomingAppointment(appointment) {
+        return Boolean(appointment?.date) && this.appointmentStart(appointment) >= new Date();
+    },
+
+    // Elimina del almacenamiento las citas cuya fecha ya pasó (antes de hoy).
+    // Las citas de hoy se conservan para que el veterinario registre la asistencia.
+    purgePastAppointments() {
+        const appointments = this.read(this.KEYS.APPOINTMENTS, []);
+        if (!Array.isArray(appointments)) return;
+
+        const today = this.today();
+        const kept = appointments.filter(app => !app.date || app.date >= today);
+
+        if (kept.length !== appointments.length) {
+            this.write(this.KEYS.APPOINTMENTS, kept);
+        }
+    },
+
+    // Cancela una cita del tutor y libera el horario para otros tutores.
+    cancelAppointment(id, tutorId) {
+        const appointments = this.read(this.KEYS.APPOINTMENTS, []);
+        const appointment = appointments.find(app => app.id === id);
+
+        if (!appointment || (tutorId && appointment.tutorId !== tutorId)) return null;
+        if (appointment.status === "Cancelada") return appointment;
+
+        appointment.status = "Cancelada";
+        appointment.cancelledAt = new Date().toISOString();
+        this.write(this.KEYS.APPOINTMENTS, appointments);
+
+        const availability = this.read(this.KEYS.AVAILABILITY, []);
+        const item = availability.find(
+            entry => entry.vetId === appointment.vetId && entry.date === appointment.date
+        );
+
+        if (item && Array.isArray(item.occupiedSlots)) {
+            item.occupiedSlots = item.occupiedSlots.filter(time => time !== appointment.time);
+            this.write(this.KEYS.AVAILABILITY, availability);
+        }
+
+        return appointment;
+    },
+
+    // Registra si el paciente asistió ("attended"), no asistió ("missed") o limpia el registro (null).
+    // Solo se puede registrar el mismo día de la cita.
+    setAttendance(id, vetId, attendance) {
+        const appointments = this.read(this.KEYS.APPOINTMENTS, []);
+        const appointment = appointments.find(app => app.id === id);
+
+        if (!appointment || appointment.vetId !== vetId) return null;
+        if (appointment.status === "Cancelada" || appointment.date > this.today()) return null;
+
+        if (attendance === "attended" || attendance === "missed") {
+            appointment.attendance = attendance;
+            appointment.attendanceAt = new Date().toISOString();
+        } else {
+            delete appointment.attendance;
+            delete appointment.attendanceAt;
+        }
+
+        this.write(this.KEYS.APPOINTMENTS, appointments);
+        return appointment;
+    },
+
+    // ===== Interfaz: secciones plegables con botón "+" =====
+    // Cada <section data-collapsible> se convierte en un panel que se expande con "+".
+    // Con data-open la sección arranca abierta. Los enlaces de .section-nav la abren al hacer clic.
+    setupCollapsibleSections() {
+        const sections = Array.from(document.querySelectorAll("[data-collapsible]"));
+
+        const setOpen = (section, open) => {
+            const button = section.querySelector(":scope > .section-heading .section-toggle");
+            const body = section.querySelector(":scope > .section-body");
+            const title = section.querySelector(":scope > .section-heading h2")?.textContent.trim() || "sección";
+            if (!button || !body) return;
+
+            section.classList.toggle("is-open", open);
+            body.hidden = !open;
+            button.setAttribute("aria-expanded", String(open));
+            button.setAttribute("aria-label", `${open ? "Contraer" : "Expandir"} ${title}`);
+            button.textContent = open ? "\u2212" : "+";
+        };
+
+        sections.forEach(section => {
+            const heading = section.querySelector(":scope > .section-heading");
+            if (!heading || section.querySelector(":scope > .section-body")) return;
+
+            const text = document.createElement("div");
+            text.className = "section-heading-text";
+            while (heading.firstChild) text.appendChild(heading.firstChild);
+
+            const body = document.createElement("div");
+            body.className = "section-body";
+            body.id = `${section.id}-body`;
+            Array.from(section.children).forEach(child => {
+                if (child !== heading) body.appendChild(child);
+            });
+
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "section-toggle";
+            button.setAttribute("aria-controls", body.id);
+
+            heading.append(text, button);
+            section.appendChild(body);
+            section.classList.add("collapsible");
+            setOpen(section, section.hasAttribute("data-open"));
+
+            heading.addEventListener("click", () => {
+                setOpen(section, !section.classList.contains("is-open"));
+            });
+        });
+
+        const openFromHash = hash => {
+            if (!hash || hash.length < 2) return;
+            const target = document.getElementById(decodeURIComponent(hash.slice(1)));
+            if (target?.matches("[data-collapsible]")) setOpen(target, true);
+        };
+
+        document.querySelectorAll(".section-nav a[href^='#']").forEach(link => {
+            link.addEventListener("click", () => openFromHash(link.getAttribute("href")));
+        });
+        window.addEventListener("hashchange", () => openFromHash(window.location.hash));
+        openFromHash(window.location.hash);
     },
 
     simplePasswordHash(password) {

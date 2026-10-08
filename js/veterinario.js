@@ -48,10 +48,16 @@ function initializeVeterinarian() {
     loadVaccinePets();
     loadVeterinarianVaccines();
     setupAvailabilityForm();
+    setupAppointmentActions();
     loadAppointments();
 
     // Refresca el panel si el tutor agenda desde otra pestaña.
     window.addEventListener("storage", handleVeterinarianStorageChange);
+
+    // Cada minuto se retiran las citas de días anteriores (también al pasar la medianoche).
+    window.setInterval(() => {
+        if (!document.hidden) loadAppointments();
+    }, 60000);
 }
 
 function handleVeterinarianStorageChange(event) {
@@ -426,46 +432,146 @@ function minutesToTime(minutes) {
     return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 }
 
+function dateToString(date) {
+    return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
+}
+
+function plural(count, one, many) {
+    return count === 1 ? one : many;
+}
+
+function dayLabel(date, today) {
+    const tomorrowDate = new Date(`${today}T00:00:00`);
+    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+
+    const formatted = formatDate(date);
+    const capitalized = formatted.charAt(0).toUpperCase() + formatted.slice(1);
+
+    if (date === today) return `Hoy, ${formatted}`;
+    if (date === dateToString(tomorrowDate)) return `Mañana, ${formatted}`;
+    return capitalized;
+}
+
+// Muestra cuántas citas tiene el veterinario hoy y cómo van.
+function updateTodaySummary(todayAppointments) {
+    const count = $("todayCount");
+    const label = $("todayLabel");
+    const detail = $("todayDetail");
+    if (!count || !label || !detail) return;
+
+    const total = todayAppointments.length;
+    const attended = todayAppointments.filter(item => item.attendance === "attended").length;
+    const missed = todayAppointments.filter(item => item.attendance === "missed").length;
+    const pending = total - attended - missed;
+
+    count.textContent = total;
+    label.textContent = plural(total, "cita hoy", "citas hoy");
+    detail.textContent = total === 0
+        ? "No tienes citas para hoy."
+        : `${pending} por atender, ${attended} ${plural(attended, "asistió", "asistieron")}, ${missed} ${plural(missed, "no asistió", "no asistieron")}.`;
+}
+
 function loadAppointments() {
     const container = $("vetAppointments");
     if (!container) return;
+
     const vet = getCurrentVeterinarian();
-    if (!vet) return;
-
-    const db = PT.db();
-    const appointments = db.appointments
-        .filter(item => item.vetId === vet.id)
-        .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
-
-    if (!appointments.length) {
-        container.innerHTML = `<div class="empty-state">Todavía no tienes citas programadas.</div>`;
+    if (!vet) {
+        updateTodaySummary([]);
         return;
     }
 
-    container.innerHTML = appointments.map(appointment => {
-        const pet = db.pets.find(item => item.id === appointment.petId);
-        const tutorName = appointment.tutorName || "Tutor no registrado";
-        const tutorEmail = appointment.tutorEmail || "Correo no registrado";
+    const today = getTodayString();
+    const db = PT.db(); // Elimina del almacenamiento las citas de días anteriores.
 
-        return `
-            <article class="appointment-card">
-                <div class="appointment-top">
-                    <div>
-                        <h3>${PT.esc(pet?.name || "Mascota")}</h3>
-                        <p>${PT.esc(appointment.reason || "Consulta veterinaria")}</p>
-                    </div>
-                    <span class="status-badge">${PT.esc(appointment.status || "Programada")}</span>
+    // Solo se muestran las citas de hoy y de los días siguientes.
+    const appointments = db.appointments
+        .filter(item => item.vetId === vet.id && item.date >= today)
+        .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
+
+    updateTodaySummary(appointments.filter(item => item.date === today && item.status !== "Cancelada"));
+
+    if (!appointments.length) {
+        container.innerHTML = `<div class="empty-state">No tienes citas para hoy ni para los próximos días.</div>`;
+        return;
+    }
+
+    const groups = new Map();
+    appointments.forEach(item => {
+        if (!groups.has(item.date)) groups.set(item.date, []);
+        groups.get(item.date).push(item);
+    });
+
+    container.innerHTML = Array.from(groups, ([date, items]) => `
+        <h3 class="appointment-day">${PT.esc(dayLabel(date, today))}</h3>
+        ${items.map(item => renderVetAppointment(item, db, today)).join("")}
+    `).join("");
+}
+
+function renderVetAppointment(appointment, db, today) {
+    const pet = db.pets.find(item => item.id === appointment.petId);
+    const tutorName = appointment.tutorName || "Tutor no registrado";
+    const tutorEmail = appointment.tutorEmail || "Correo no registrado";
+    const cancelled = appointment.status === "Cancelada";
+    const id = PT.esc(appointment.id);
+
+    let badge = `<span class="status-badge">${PT.esc(appointment.status || "Programada")}</span>`;
+    if (cancelled) badge = `<span class="status-badge danger">Cancelada</span>`;
+    else if (appointment.attendance === "attended") badge = `<span class="status-badge success">Asistió</span>`;
+    else if (appointment.attendance === "missed") badge = `<span class="status-badge danger">No asistió</span>`;
+
+    let actions = "";
+    if (!cancelled && appointment.date !== today) {
+        actions = `<div class="appointment-actions"><span class="appointment-note">Podrás registrar la asistencia el día de la cita.</span></div>`;
+    } else if (!cancelled && appointment.attendance) {
+        actions = `
+            <div class="appointment-actions">
+                <button type="button" class="btn btn-outline btn-small" data-attendance-id="${id}" data-attendance-value="reset">Corregir</button>
+            </div>`;
+    } else if (!cancelled) {
+        actions = `
+            <div class="appointment-actions">
+                <button type="button" class="btn btn-primary btn-small" data-attendance-id="${id}" data-attendance-value="attended">Asistió</button>
+                <button type="button" class="btn btn-danger-outline btn-small" data-attendance-id="${id}" data-attendance-value="missed">No asistió</button>
+            </div>`;
+    }
+
+    return `
+        <article class="appointment-card${cancelled ? " is-cancelled" : ""}">
+            <div class="appointment-top">
+                <div>
+                    <h3>${PT.esc(pet?.name || "Mascota")}</h3>
+                    <p>${PT.esc(appointment.reason || "Consulta veterinaria")}</p>
                 </div>
-                <div class="appointment-info appointment-scheduled-info">
-                    <span><strong>📅 Fecha</strong>${PT.fmtDate(appointment.date)}</span>
-                    <span><strong>🕐 Hora</strong>${PT.esc(appointment.time || "No registrada")}</span>
-                    <span><strong>🐾 Mascota</strong>${PT.esc(pet?.name || "No disponible")}</span>
-                    <span><strong>👤 Tutor</strong>${PT.esc(tutorName)}</span>
-                    <span><strong>✉️ Correo</strong>${PT.esc(tutorEmail)}</span>
-                </div>
-            </article>
-        `;
-    }).join("");
+                ${badge}
+            </div>
+            <div class="appointment-info appointment-scheduled-info">
+                <span><strong>📅 Fecha</strong>${PT.fmtDate(appointment.date)}</span>
+                <span><strong>🕐 Hora</strong>${PT.esc(appointment.time || "No registrada")}</span>
+                <span><strong>🐾 Mascota</strong>${PT.esc(pet?.name || "No disponible")}</span>
+                <span><strong>👤 Tutor</strong>${PT.esc(tutorName)}</span>
+                <span><strong>✉️ Correo</strong>${PT.esc(tutorEmail)}</span>
+            </div>
+            ${actions}
+        </article>
+    `;
+}
+
+function setupAppointmentActions() {
+    const container = $("vetAppointments");
+    if (!container) return;
+
+    container.addEventListener("click", event => {
+        const button = event.target.closest("[data-attendance-value]");
+        if (!button) return;
+
+        const vet = getCurrentVeterinarian();
+        if (!vet) return;
+
+        const value = button.dataset.attendanceValue;
+        PT.setAttendance(button.dataset.attendanceId, vet.id, value === "reset" ? null : value);
+        loadAppointments();
+    });
 }
 
 function setupLogout() {

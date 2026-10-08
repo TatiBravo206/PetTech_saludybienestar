@@ -1277,3 +1277,188 @@ input:invalid:not(:placeholder-shown) {
         flex: 1 1 100%;
     }
 }
+
+
+/* =========================================================
+   PANELES: navegación por secciones, secciones plegables
+   y agenda del veterinario
+   ========================================================= */
+
+/* Barra de secciones dentro del encabezado fijo */
+.section-nav {
+    border-top: 1px solid var(--border);
+}
+
+.section-nav-inner {
+    display: flex;
+    gap: 6px;
+    padding: 8px 0;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.section-nav a {
+    flex: 0 0 auto;
+    padding: 7px 14px;
+    border-radius: 999px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-light);
+    white-space: nowrap;
+    transition: background var(--transition), color var(--transition);
+}
+
+.section-nav a:hover {
+    background: var(--secondary);
+    color: var(--primary-dark);
+}
+
+.section-nav a:focus-visible,
+.section-toggle:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+/* El encabezado fijo ocupa dos filas: dejamos aire al saltar a una sección */
+.dashboard-section[id],
+.dashboard-header[id] {
+    scroll-margin-top: 150px;
+}
+
+/* Secciones plegables */
+.dashboard-section.collapsible {
+    margin-bottom: 18px;
+}
+
+.collapsible > .section-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    max-width: none;
+    margin: 0;
+    padding: 18px 22px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.collapsible > .section-heading:hover {
+    border-color: var(--primary-light);
+    box-shadow: 0 6px 18px rgba(42, 25, 75, 0.07);
+}
+
+.collapsible .section-heading h2 {
+    margin: 0;
+    font-size: 1.3rem;
+}
+
+.collapsible .section-heading p {
+    margin-top: 4px;
+    font-size: 0.92rem;
+}
+
+.section-toggle {
+    flex: 0 0 auto;
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border: 1.5px solid var(--primary);
+    border-radius: 50%;
+    background: var(--secondary);
+    color: var(--primary);
+    font-size: 1.4rem;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    transition: background var(--transition), color var(--transition);
+}
+
+.collapsible.is-open > .section-heading .section-toggle {
+    background: var(--primary);
+    color: #fff;
+}
+
+.section-body {
+    margin-top: 20px;
+}
+
+.section-body[hidden] {
+    display: none;
+}
+
+/* Citas: acciones, estado cancelado y agrupación por día */
+.appointment-card.is-cancelled {
+    opacity: 0.65;
+}
+
+.appointment-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+}
+
+.appointment-note {
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+.appointment-day {
+    margin: 14px 0 0;
+    font-size: 1.05rem;
+    color: var(--primary-dark);
+}
+
+.appointment-day:first-child {
+    margin-top: 0;
+}
+
+/* Resumen de citas del día (panel veterinario) */
+.today-summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 18px;
+    padding: 12px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+
+.today-summary-count {
+    font-size: 2.4rem;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--primary-dark);
+}
+
+.today-summary-label {
+    text-align: left;
+}
+
+.today-summary-label strong {
+    display: block;
+}
+
+.today-summary-detail {
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+@media (max-width: 750px) {
+    .section-nav-inner {
+        padding: 8px 0 10px;
+    }
+
+    .dashboard-section[id],
+    .dashboard-header[id] {
+        scroll-margin-top: 190px;
+    }
+}

@@ -71,6 +71,16 @@
 
         </div>
 
+        <!-- secciones del panel -->
+        <nav class="section-nav" aria-label="Secciones del panel">
+            <div class="container section-nav-inner">
+                <a href="#seccion-registrar-vacuna">Registrar vacuna</a>
+                <a href="#seccion-vacunas">Vacunas registradas</a>
+                <a href="#seccion-disponibilidad">Publicar disponibilidad</a>
+                <a href="#seccion-citas">Citas programadas</a>
+            </div>
+        </nav>
+
     </header>
 
 
@@ -78,13 +88,20 @@
 
         <div class="container">
             <!-- encabezado del veterinario -->
-            <section class="dashboard-header header-with-image">
+            <section id="seccion-agenda" class="dashboard-header header-with-image">
                 <div class="header-text">
                     <h1>Gestión de agenda</h1>
                     <p>
                         Publica tus horarios disponibles y consulta
                         las citas confirmadas por los tutores.
                     </p>
+                    <div class="today-summary" id="todaySummary" aria-live="polite">
+                        <span class="today-summary-count" id="todayCount">0</span>
+                        <span class="today-summary-label">
+                            <strong id="todayLabel">citas hoy</strong>
+                            <span class="today-summary-detail" id="todayDetail"></span>
+                        </span>
+                    </div>
                 </div>
                 <div class="header-image">
                     <img src="image/veterinario.png" alt="Ilustración veterinaria con perro y gato"
@@ -92,7 +109,7 @@
                 </div>
             </section>
 
-            <section class="dashboard-section">
+            <section id="seccion-registrar-vacuna" class="dashboard-section">
                 <div class="section-heading left">
                     <h2>Registrar vacuna</h2>
                 </div>
@@ -149,7 +166,7 @@
                 </div>
             </section>
 
-            <section class="dashboard-section">
+            <section id="seccion-vacunas" class="dashboard-section">
                 <div class="section-heading left">
                     <h2>Vacunas registradas</h2>
                     <p>Administra los registros de vacunación de tus pacientes.</p>
@@ -159,7 +176,7 @@
 
 
 
-            <section class="dashboard-section">
+            <section id="seccion-disponibilidad" class="dashboard-section">
 
                 <div class="section-heading left">
 
@@ -251,10 +268,10 @@
 
             </section>
             <!-- citas programadas -->
-            <section class="dashboard-section">
+            <section id="seccion-citas" class="dashboard-section">
                 <div class="section-heading left">
                     <h2>Citas programadas</h2>
-                    <p>Consulta la fecha, hora, tutor y mascota de cada cita agendada.</p>
+                    <p>Citas de hoy y de los próximos días. Marca si el paciente asistió; las citas anteriores se eliminan automáticamente.</p>
                 </div>
                 <div id="vetAppointments" class="appointment-list"></div>
             </section>

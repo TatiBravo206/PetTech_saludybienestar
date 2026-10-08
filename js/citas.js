@@ -14,6 +14,7 @@ function initializeTutor() {
         return;
     }
 
+    PT.setupCollapsibleSections();
     setupHeaderAndStats(session);
     setupDateMinimum();
     loadPets(session);
@@ -24,11 +25,55 @@ function initializeTutor() {
     setupPetModalControls();
     setupPetForm(session);
     setupAppointmentForm(session);
+    setupAppointmentCancel(session);
     setupLogout();
 
     // Sincronización entre pestañas/ventanas del navegador.
     window.addEventListener("storage", handleTutorStorageChange);
+
+    // Cada minuto se retiran de la lista las citas que ya pasaron.
+    window.setInterval(() => {
+        if (document.hidden) return;
+        PT.purgePastAppointments();
+        loadTutorAppointments(session);
+        loadPets(session);
+        renderStats(session);
+        window.PetTechCalendar?.refresh?.();
+    }, 60000);
 }
+
+// Eventos del mini calendario flotante: solo citas activas y próximas del tutor
+// y la próxima dosis de las vacunas de sus mascotas.
+window.PetTechCalendarEvents = function () {
+    const session = PT.read(PT.KEYS.SESSION, null);
+    if (!session || session.role !== "tutor") return [];
+
+    const pets = PT.read(PT.KEYS.PETS, []).filter(pet => pet.tutorId === session.id);
+    const petById = new Map(pets.map(pet => [pet.id, pet]));
+    const events = [];
+
+    PT.read(PT.KEYS.APPOINTMENTS, [])
+        .filter(app => app.tutorId === session.id && app.status !== "Cancelada" && PT.isUpcomingAppointment(app))
+        .forEach(app => events.push({
+            tipo: "cita",
+            fecha: app.date,
+            hora: app.time || "",
+            mascota: petById.get(app.petId)?.name || "",
+            detalle: app.reason || ""
+        }));
+
+    PT.read(PT.KEYS.VACCINES, [])
+        .filter(vaccine => petById.has(vaccine.petId) && vaccine.nextDate)
+        .forEach(vaccine => events.push({
+            tipo: "vacuna",
+            fecha: vaccine.nextDate,
+            hora: "",
+            mascota: petById.get(vaccine.petId)?.name || "",
+            detalle: vaccine.name
+        }));
+
+    return events;
+};
 
 function handleTutorStorageChange(event) {
     if (![PT.KEYS.PETS, PT.KEYS.VACCINES, PT.KEYS.APPOINTMENTS, PT.KEYS.VETS, PT.KEYS.AVAILABILITY].includes(event.key)) {
@@ -64,7 +109,11 @@ function renderStats(session) {
     const pets = PT.petsForTutor(session.id);
     const petIds = new Set(pets.map(pet => pet.id));
     const vaccines = db.vaccines.filter(vaccine => petIds.has(vaccine.petId));
-    const appointments = db.appointments.filter(appointment => appointment.tutorId === session.id);
+    const appointments = db.appointments.filter(appointment =>
+        appointment.tutorId === session.id &&
+        appointment.status !== "Cancelada" &&
+        PT.isUpcomingAppointment(appointment)
+    );
 
     statsContainer.innerHTML = `
         <article class="stat-card">
@@ -77,7 +126,7 @@ function renderStats(session) {
         </article>
         <article class="stat-card">
             <div class="stat-value">${appointments.length}</div>
-            <div class="stat-label">Citas registradas</div>
+            <div class="stat-label">Citas próximas</div>
         </article>
     `;
 }
@@ -86,8 +135,7 @@ function setupDateMinimum() {
     const dateInput = document.getElementById("appointmentDate");
     if (!dateInput) return;
 
-    const today = new Date().toISOString().split("T")[0];
-    dateInput.min = today;
+    dateInput.min = PT.today();
     dateInput.addEventListener("change", renderAvailableSlots);
 }
 
@@ -126,7 +174,11 @@ function renderPetCard(pet, db) {
         .sort((a, b) => a.nextDate.localeCompare(b.nextDate));
 
     const petAppointments = db.appointments
-        .filter(appointment => appointment.petId === pet.id)
+        .filter(appointment =>
+            appointment.petId === pet.id &&
+            appointment.status !== "Cancelada" &&
+            PT.isUpcomingAppointment(appointment)
+        )
         .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
 
     return `
@@ -166,7 +218,7 @@ function renderPetCard(pet, db) {
 
 function getHealthDateStatus(dateString) {
     if (!dateString) return { label: "Sin fecha", shortLabel: "Sin fecha", pillClass: "orange", days: null };
-    const today = new Date(`${new Date().toISOString().split("T")[0]}T00:00:00`);
+    const today = new Date(`${PT.today()}T00:00:00`);
     const target = new Date(`${dateString}T00:00:00`);
     const days = Math.ceil((target - today) / 86400000);
     if (days < 0) return { label: "Vacuna pendiente", shortLabel: "Pendiente", pillClass: "red", days };
@@ -179,37 +231,25 @@ function loadHealthReminders(session) {
     if (!container) return;
 
     const db = PT.db();
-    const pets = PT.petsForTutor(session.id);
-    const petIds = new Set(pets.map(pet => pet.id));
+    const petIds = new Set(PT.petsForTutor(session.id).map(pet => pet.id));
     const reminders = [];
 
     db.vaccines.filter(vaccine => petIds.has(vaccine.petId)).forEach(vaccine => {
         const pet = db.pets.find(item => item.id === vaccine.petId);
         const status = getHealthDateStatus(vaccine.nextDate);
         if (status.days !== null && status.days <= 60) {
-            reminders.push({ type: "vaccine", date: vaccine.nextDate, petName: pet?.name || "Mascota", title: vaccine.name, status });
+            reminders.push({ date: vaccine.nextDate, petName: pet?.name || "Mascota", title: vaccine.name, status });
         }
     });
 
-    db.appointments.filter(appointment => appointment.tutorId === session.id && appointment.status !== "Cancelada").forEach(appointment => {
-        const pet = db.pets.find(item => item.id === appointment.petId);
-        const appointmentDate = `${appointment.date}T${appointment.time || "00:00"}`;
-        const now = new Date();
-        const target = new Date(appointmentDate);
-        const days = Math.ceil((new Date(`${appointment.date}T00:00:00`) - new Date(`${new Date().toISOString().split("T")[0]}T00:00:00`)) / 86400000);
-        if (target >= now && days <= 30) {
-            reminders.push({ type: "appointment", date: appointment.date, time: appointment.time, petName: pet?.name || "Mascota", title: appointment.reason || "Consulta veterinaria", days });
-        }
-    });
-
-    reminders.sort((a, b) => `${a.date}${a.time || ""}`.localeCompare(`${b.date}${b.time || ""}`));
+    reminders.sort((a, b) => String(a.date).localeCompare(String(b.date)));
 
     if (!reminders.length) {
-        container.innerHTML = `<div class="empty-state">No tienes vacunas ni citas próximas. PetTech te mostrará aquí los próximos recordatorios.</div>`;
+        container.innerHTML = `<div class="empty-state">No tienes vacunas próximas. PetTech te mostrará aquí los próximos refuerzos.</div>`;
         return;
     }
 
-    container.innerHTML = reminders.map(item => item.type === "vaccine" ? `
+    container.innerHTML = reminders.map(item => `
         <article class="reminder-card ${item.status.days < 0 ? "reminder-danger" : "reminder-warning"}">
             <div class="reminder-icon">💉</div>
             <div class="reminder-content">
@@ -217,16 +257,6 @@ function loadHealthReminders(session) {
                 <h3>${PT.esc(item.title)}</h3>
                 <p><strong>${PT.esc(item.petName)}</strong> · próxima dosis ${PT.fmtDate(item.date)}</p>
                 <span class="status-badge ${item.status.days < 0 ? "danger" : "warning"}">${PT.esc(item.status.label)}</span>
-            </div>
-        </article>
-    ` : `
-        <article class="reminder-card reminder-info">
-            <div class="reminder-icon">📅</div>
-            <div class="reminder-content">
-                <span class="reminder-type">Cita veterinaria</span>
-                <h3>${PT.esc(item.title)}</h3>
-                <p><strong>${PT.esc(item.petName)}</strong> · ${PT.fmtDate(item.date)}${item.time ? ` · ${PT.esc(item.time)}` : ""}</p>
-                <span class="status-badge info">${item.days === 0 ? "Hoy" : `En ${item.days} día${item.days === 1 ? "" : "s"}`}</span>
             </div>
         </article>
     `).join("");
@@ -501,36 +531,75 @@ function loadTutorAppointments(session) {
     const container = document.getElementById("tutorAppointments");
     if (!container) return;
 
+    PT.purgePastAppointments();
+
     const db = PT.db();
     const appointments = db.appointments
-        .filter(appointment => appointment.tutorId === session.id)
+        .filter(appointment => appointment.tutorId === session.id && PT.isUpcomingAppointment(appointment))
         .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
 
     container.innerHTML = appointments.length
         ? appointments.map(appointment => renderAppointmentCard(appointment, db)).join("")
-        : `<div class="empty-state">No tienes citas confirmadas.</div>`;
+        : `<div class="empty-state">No tienes citas próximas.</div>`;
 }
 
 function renderAppointmentCard(appointment, db) {
     const pet = db.pets.find(item => item.id === appointment.petId);
     const vet = db.vets.find(item => item.id === appointment.vetId);
+    const cancelled = appointment.status === "Cancelada";
 
     return `
-        <article class="appointment-card">
+        <article class="appointment-card${cancelled ? " is-cancelled" : ""}">
             <div class="appointment-top">
                 <div>
                     <h3>${PT.esc(pet?.name || "Mascota")}</h3>
                     <p>Veterinario: ${PT.esc(vet?.name || "Asignado")}</p>
                 </div>
-                <span class="status-badge">${PT.esc(appointment.status)}</span>
+                <span class="status-badge${cancelled ? " danger" : ""}">${PT.esc(appointment.status)}</span>
             </div>
             <div class="appointment-info">
                 <span>📅 ${PT.fmtDate(appointment.date)}</span>
                 <span>🕐 ${PT.esc(appointment.time)}</span>
                 <span>🩺 ${PT.esc(vet?.specialty || "General")}</span>
             </div>
+            ${cancelled ? "" : `
+            <div class="appointment-actions">
+                <button type="button" class="btn btn-danger-outline btn-small" data-cancel-appointment="${PT.esc(appointment.id)}">Cancelar cita</button>
+            </div>`}
         </article>
     `;
+}
+
+function setupAppointmentCancel(session) {
+    const container = document.getElementById("tutorAppointments");
+    if (!container) return;
+
+    container.addEventListener("click", event => {
+        const button = event.target.closest("[data-cancel-appointment]");
+        if (!button) return;
+
+        const db = PT.db();
+        const appointment = db.appointments.find(item => item.id === button.dataset.cancelAppointment);
+        if (!appointment) return;
+
+        const pet = db.pets.find(item => item.id === appointment.petId);
+        const confirmed = window.confirm(
+            `¿Cancelar la cita de ${pet?.name || "tu mascota"} del ${PT.fmtDate(appointment.date)} a las ${appointment.time}?`
+        );
+        if (!confirmed) return;
+
+        if (!PT.cancelAppointment(appointment.id, session.id)) {
+            showMessage("tutorAppointmentsMessage", "No fue posible cancelar la cita.", "error");
+            return;
+        }
+
+        showMessage("tutorAppointmentsMessage", "La cita fue cancelada y el horario quedó libre.", "success");
+        loadTutorAppointments(session);
+        loadPets(session);
+        renderStats(session);
+        renderAvailableSlots();
+        window.PetTechCalendar?.refresh?.();
+    });
 }
 
 function setupLogout() {
